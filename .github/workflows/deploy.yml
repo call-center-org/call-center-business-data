@@ -1,0 +1,46 @@
+name: 部署到腾讯云CloudBase
+
+on:
+  push:
+    branches:
+      - main  # 当推送到main分支时触发
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 检出代码
+      - name: 检出代码
+        uses: actions/checkout@v3
+      
+      # 设置Node.js环境
+      - name: 设置Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      # 安装依赖
+      - name: 安装依赖
+        run: npm ci
+      
+      # 构建项目
+      - name: 构建项目
+        run: npm run build
+      
+      # 安装CloudBase CLI
+      - name: 安装CloudBase CLI
+        run: npm install -g @cloudbase/cli
+      
+      # 部署到CloudBase
+      - name: 部署到CloudBase
+        env:
+          CLOUDBASE_SECRET_ID: ${{ secrets.CLOUDBASE_SECRET_ID }}
+          CLOUDBASE_SECRET_KEY: ${{ secrets.CLOUDBASE_SECRET_KEY }}
+        run: |
+          echo "开始部署到CloudBase..."
+          cloudbase login --apiKeyId $CLOUDBASE_SECRET_ID --apiKey $CLOUDBASE_SECRET_KEY
+          cloudbase hosting deploy dist -e cloud1-6gt5ulxm10210d0f
+          echo "部署完成！"
+
