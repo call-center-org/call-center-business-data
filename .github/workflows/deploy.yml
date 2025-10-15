@@ -42,8 +42,8 @@ jobs:
         run: |
           echo "开始部署到CloudBase..."
           echo "配置CloudBase认证..."
-          cloudbase login --key --secretId $CLOUDBASE_SECRET_ID --secretKey $CLOUDBASE_SECRET_KEY
+          echo "{\"secretId\":\"$CLOUDBASE_SECRET_ID\",\"secretKey\":\"$CLOUDBASE_SECRET_KEY\"}" > ~/.cloudbaserc
           echo "开始部署文件..."
-          cloudbase hosting deploy dist -e $CLOUDBASE_ENV_ID
+          tcb hosting deploy dist -e $CLOUDBASE_ENV_ID
           echo "部署完成！"
 
