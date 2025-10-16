@@ -36,8 +36,8 @@ jobs:
       # 部署到CloudBase
       - name: 部署到CloudBase
         env:
-          CLOUDBASE_SECRET_ID: ${{ secrets.CLOUDBASE_SECRET_ID }}
-          CLOUDBASE_SECRET_KEY: ${{ secrets.CLOUDBASE_SECRET_KEY }}
+          CLOUDBASE_SECRET_ID: ${{ secrets.TENCENT_SECRET_ID }}
+          CLOUDBASE_SECRET_KEY: ${{ secrets.TENCENT_SECRET_KEY }}
           CLOUDBASE_ENV_ID: cloud1-6gt5ulxm10210d0f
         run: |
           echo "开始部署到CloudBase..."
