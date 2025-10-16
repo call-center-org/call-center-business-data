@@ -33,3 +33,11 @@ lerna-debug.log*
 *.tmp
 *.temp
 
+# 压缩包
+*.tar.gz
+*.zip
+
+# 备份文件
+*.bak
+*.backup
+

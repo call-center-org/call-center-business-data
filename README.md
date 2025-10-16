@@ -30,7 +30,25 @@ npm run dev
 
 访问: http://localhost:3001
 
-### 3. 配置API认证
+### 3. 构建生产版本
+```bash
+npm run build
+```
+
+## ☁️ 部署
+
+### 方式1：GitHub 自动部署到腾讯云 CloudBase（推荐）
+详细步骤请查看：`CloudBase-GitHub自动部署配置指南.md`
+
+### 方式2：命令行直接部署到 CloudBase（兜底方案）
+详细步骤请查看：`CloudBase命令行部署.md`
+
+### 方式3：使用 CloudBase Framework
+详细步骤请查看：`CloudBase-Framework部署方案.md`
+
+## ⚙️ 使用说明
+
+### 1. 配置API认证
 
 首次访问时会显示认证配置界面，选择以下任一方式：
 
@@ -88,12 +106,6 @@ export const API_CONFIG = {
   }
 }
 ```
-
-## 📖 API文档
-
-完整的API文档请查看：
-- `API_DOCUMENTATION.md` - API接口文档摘要
-- `API_SETUP_GUIDE.md` - 详细配置指南
 
 ## 🛠️ 技术栈
 
