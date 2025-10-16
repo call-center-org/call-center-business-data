@@ -41,8 +41,9 @@ jobs:
           CLOUDBASE_ENV_ID: cloud1-6gt5ulxm10210d0f
         run: |
           echo "开始部署到CloudBase..."
-          echo "配置CloudBase认证..."
-          echo "{\"secretId\":\"$CLOUDBASE_SECRET_ID\",\"secretKey\":\"$CLOUDBASE_SECRET_KEY\"}" > ~/.cloudbaserc
+          echo "使用环境变量认证..."
+          export TCB_SECRET_ID=$CLOUDBASE_SECRET_ID
+          export TCB_SECRET_KEY=$CLOUDBASE_SECRET_KEY
           echo "开始部署文件..."
           tcb hosting deploy dist -e $CLOUDBASE_ENV_ID
           echo "部署完成！"
