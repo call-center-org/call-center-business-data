@@ -1,5 +1,23 @@
 # 外呼坐席数据获取系统
 
+> **Call Center Organization** 的子系统 - 外呼数据采集与分析
+
+---
+
+## 🏠 项目定位
+
+本系统是 [Call Center Organization](https://github.com/call-center-org) 微服务架构中的**数据采集系统**。
+
+**⚠️ 如果你是第一次接触本项目或打开新的对话窗口**，建议先阅读：
+- 📚 [Organization README](https://github.com/call-center-org) - 了解整体架构和所有子系统
+- 📖 然后回到本 README 了解外呼数据系统的具体信息
+
+**🤖 如果你是 AI 助手**，请先阅读 workspace 根目录的 `ORGANIZATION_README.md` 和本仓库的 `.cursorrules` 文件。
+
+---
+
+## 📋 系统简介
+
 基于智能外呼机器人API的数据采集和分析平台 - 快速统计呼出数据
 
 ## ✨ 功能特性
