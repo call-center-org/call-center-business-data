@@ -1,0 +1,34 @@
+version: '3.8'
+
+# ===================================
+# 生产环境配置
+# 使用方式: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# ===================================
+
+services:
+  backend:
+    environment:
+      - FLASK_ENV=production
+      # 使用 PostgreSQL（推荐生产环境）
+      - DATABASE_URL=${DATABASE_URL}
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  frontend:
+    environment:
+      # 生产环境后端 URL
+      - VITE_BACKEND_URL=${BACKEND_URL:-https://api.your-domain.com}
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M

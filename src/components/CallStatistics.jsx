@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Phone, TrendingUp, Calendar, RefreshCw, AlertCircle } from 'lucide-react'
 import { testApiConnection } from '../utils/callApi'
-import { getMonthlyStatistics, getDailyStatistics } from '../utils/statisticsApi'
+import { getMonthlyStatistics, getDailyStatistics, getGradeStatistics, getMonthlyGradeStatistics } from '../utils/statisticsApi'
 import { formatNumber } from '../utils/formatNumber'
 import toast from 'react-hot-toast'
 import tokenManager from '../utils/tokenManager'
@@ -23,10 +23,49 @@ function CallStatistics() {
     const day = String(date.getDate()).padStart(2, '0')
     return `${year}-${month}-${day}`
   }
+
+  // 渲染接通率（整数部分大，小数部分小）
+  const renderConnectedRate = (rate) => {
+    const [integer, decimal] = rate.split('.')
+    return (
+      <span className="inline-flex items-baseline">
+        <span className="text-3xl font-bold">{integer}</span>
+        {decimal && (
+          <>
+            <span className="text-base font-bold">.{decimal}</span>
+          </>
+        )}
+        <span className="text-base font-bold ml-0.5">%</span>
+      </span>
+    )
+  }
+
+  // 渲染成功率（如果是0.xx格式，0字号小）
+  const renderSuccessRate = (rate) => {
+    const [integer, decimal] = rate.split('.')
+    return (
+      <span className="inline-flex items-baseline">
+        {integer === '0' ? (
+          <span className="text-base font-bold">{integer}</span>
+        ) : (
+          <span className="text-3xl font-bold">{integer}</span>
+        )}
+        {decimal && (
+          <>
+            <span className="text-3xl font-bold">.{decimal}</span>
+          </>
+        )}
+        <span className="text-3xl font-bold ml-0.5">%</span>
+      </span>
+    )
+  }
   
   const [statistics, setStatistics] = useState(null)
   const [todayStats, setTodayStats] = useState(null)
   const [yesterdayStats, setYesterdayStats] = useState(null)
+  const [todayGradeStats, setTodayGradeStats] = useState(null)
+  const [yesterdayGradeStats, setYesterdayGradeStats] = useState(null)
+  const [monthGradeStats, setMonthGradeStats] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth())
@@ -66,13 +105,24 @@ function CallStatistics() {
       
       console.log('🔄 加载当日和昨日数据...', { today, yesterday })
       
-      const [todayData, yesterdayData] = await Promise.all([
+      // 同时加载汇总数据和意向度数据
+      const [todayData, yesterdayData, todayGrade, yesterdayGrade] = await Promise.all([
         getDailyStatistics(today),
-        getDailyStatistics(yesterday)
+        getDailyStatistics(yesterday),
+        getGradeStatistics(today).catch(err => {
+          console.warn('获取今日意向度统计失败:', err)
+          return { grade_9: 0, grade_1: 0, total_success: 0 }
+        }),
+        getGradeStatistics(yesterday).catch(err => {
+          console.warn('获取昨日意向度统计失败:', err)
+          return { grade_9: 0, grade_1: 0, total_success: 0 }
+        })
       ])
       
       setTodayStats(todayData)
       setYesterdayStats(yesterdayData)
+      setTodayGradeStats(todayGrade)
+      setYesterdayGradeStats(yesterdayGrade)
       setLastRefreshTime(new Date())
       
       console.log('✅ 当日昨日数据加载完成')
@@ -89,10 +139,19 @@ function CallStatistics() {
     setLoadingProgress({ current: 0, total: 0, page: 0 })
     
     try {
-      const stats = await getMonthlyStatistics(month, (progress) => {
-        setLoadingProgress(progress)
-      })
+      // 同时加载月度汇总数据和意向度数据
+      const [stats, gradeStats] = await Promise.all([
+        getMonthlyStatistics(month, (progress) => {
+          setLoadingProgress(progress)
+        }),
+        getMonthlyGradeStatistics(month).catch(err => {
+          console.warn('获取月度意向度统计失败:', err)
+          return { grade_9: 0, grade_1: 0, total_success: 0 }
+        })
+      ])
+      
       setStatistics(stats)
+      setMonthGradeStats(gradeStats)
       localStorage.setItem('monthlyStatistics', JSON.stringify(stats))
       toast.success(`成功加载${month}月数据，外呼总数：${formatNumber(stats.totalCalls)}`)
     } catch (err) {
@@ -276,7 +335,7 @@ function CallStatistics() {
               </span>
             )}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <div className="card bg-gradient-to-br from-blue-50 to-blue-100">
               <div className="flex items-center justify-between">
                 <div>
@@ -313,9 +372,9 @@ function CallStatistics() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-cyan-600 font-medium">接通率</p>
-                  <p className="text-3xl font-bold text-cyan-900 mt-2">
-                    {todayStats.connectedRate}%
-                  </p>
+                  <div className="text-cyan-900 mt-2">
+                    {renderConnectedRate(todayStats.connectedRate)}
+                  </div>
                   <p className="text-xs text-cyan-600 mt-1">今日</p>
                 </div>
                 <div className="w-12 h-12 bg-cyan-500 rounded-lg flex items-center justify-center">
@@ -326,14 +385,39 @@ function CallStatistics() {
 
             <div className="card bg-gradient-to-br from-purple-50 to-purple-100">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-purple-600 font-medium">成功单</p>
-                  <p className="text-3xl font-bold text-purple-900 mt-2">
-                    {formatNumber(todayStats.successNumber)}
-                  </p>
-                  <p className="text-xs text-purple-600 mt-1">今日</p>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm text-purple-600 font-medium">成功单</p>
+                    {todayGradeStats && todayStats.successNumber !== (todayGradeStats.grade_9 + todayGradeStats.grade_1) && (
+                      <span className="text-xs text-red-600 font-semibold flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        偏差
+                      </span>
+                    )}
+                  </div>
+                  {todayGradeStats ? (
+                    <div className="flex items-end gap-3">
+                      <div className="text-center">
+                        <p className="text-3xl font-bold text-purple-900">{formatNumber(todayGradeStats.grade_9)}</p>
+                        <p className="text-xs text-purple-600 mt-0.5">9元</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-3xl font-bold text-purple-900">{formatNumber(todayGradeStats.grade_1)}</p>
+                        <p className="text-xs text-purple-600 mt-0.5">1元</p>
+                      </div>
+                      <div className="text-center ml-auto">
+                        <p className="text-3xl font-bold text-purple-700">{formatNumber(todayStats.successNumber)}</p>
+                        <p className="text-xs text-purple-600 mt-0.5">总计</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-3xl font-bold text-purple-900 mt-2">{formatNumber(todayStats.successNumber)}</p>
+                      <p className="text-xs text-purple-600 mt-1">今日</p>
+                    </div>
+                  )}
                 </div>
-                <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center">
+                <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center ml-3">
                   <AlertCircle className="w-6 h-6 text-white" />
                 </div>
               </div>
@@ -343,13 +427,28 @@ function CallStatistics() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-pink-600 font-medium">成功率</p>
-                  <p className="text-3xl font-bold text-pink-900 mt-2">
-                    {todayStats.successRate}%
-                  </p>
+                  <div className="text-pink-900 mt-2">
+                    {renderSuccessRate(todayStats.successRate)}
+                  </div>
                   <p className="text-xs text-pink-600 mt-1">今日</p>
                 </div>
                 <div className="w-12 h-12 bg-pink-500 rounded-lg flex items-center justify-center">
                   <TrendingUp className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </div>
+
+            <div className="card bg-gradient-to-br from-orange-50 to-orange-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-orange-600 font-medium">坐席数量</p>
+                  <p className="text-3xl font-bold text-orange-900 mt-2">
+                    {todayStats.activeSeats || 0}
+                  </p>
+                  <p className="text-xs text-orange-600 mt-1">有外呼数</p>
+                </div>
+                <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center">
+                  <Phone className="w-6 h-6 text-white" />
                 </div>
               </div>
             </div>
@@ -361,7 +460,7 @@ function CallStatistics() {
       {yesterdayStats && (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-900">昨日数据</h3>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <div className="card bg-gradient-to-br from-blue-50 to-blue-100">
               <div className="flex items-center justify-between">
                 <div>
@@ -398,9 +497,9 @@ function CallStatistics() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-cyan-600 font-medium">接通率</p>
-                  <p className="text-3xl font-bold text-cyan-900 mt-2">
-                    {yesterdayStats.connectedRate}%
-                  </p>
+                  <div className="text-cyan-900 mt-2">
+                    {renderConnectedRate(yesterdayStats.connectedRate)}
+                  </div>
                   <p className="text-xs text-cyan-600 mt-1">昨日</p>
                 </div>
                 <div className="w-12 h-12 bg-cyan-500 rounded-lg flex items-center justify-center">
@@ -411,14 +510,39 @@ function CallStatistics() {
 
             <div className="card bg-gradient-to-br from-purple-50 to-purple-100">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-purple-600 font-medium">成功单</p>
-                  <p className="text-3xl font-bold text-purple-900 mt-2">
-                    {formatNumber(yesterdayStats.successNumber)}
-                  </p>
-                  <p className="text-xs text-purple-600 mt-1">昨日</p>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm text-purple-600 font-medium">成功单</p>
+                    {yesterdayGradeStats && yesterdayStats.successNumber !== (yesterdayGradeStats.grade_9 + yesterdayGradeStats.grade_1) && (
+                      <span className="text-xs text-red-600 font-semibold flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        偏差
+                      </span>
+                    )}
+                  </div>
+                  {yesterdayGradeStats ? (
+                    <div className="flex items-end gap-3">
+                      <div className="text-center">
+                        <p className="text-3xl font-bold text-purple-900">{formatNumber(yesterdayGradeStats.grade_9)}</p>
+                        <p className="text-xs text-purple-600 mt-0.5">9元</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-3xl font-bold text-purple-900">{formatNumber(yesterdayGradeStats.grade_1)}</p>
+                        <p className="text-xs text-purple-600 mt-0.5">1元</p>
+                      </div>
+                      <div className="text-center ml-auto">
+                        <p className="text-3xl font-bold text-purple-700">{formatNumber(yesterdayStats.successNumber)}</p>
+                        <p className="text-xs text-purple-600 mt-0.5">总计</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-3xl font-bold text-purple-900 mt-2">{formatNumber(yesterdayStats.successNumber)}</p>
+                      <p className="text-xs text-purple-600 mt-1">昨日</p>
+                    </div>
+                  )}
                 </div>
-                <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center">
+                <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center ml-3">
                   <AlertCircle className="w-6 h-6 text-white" />
                 </div>
               </div>
@@ -428,13 +552,28 @@ function CallStatistics() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-pink-600 font-medium">成功率</p>
-                  <p className="text-3xl font-bold text-pink-900 mt-2">
-                    {yesterdayStats.successRate}%
-                  </p>
+                  <div className="text-pink-900 mt-2">
+                    {renderSuccessRate(yesterdayStats.successRate)}
+                  </div>
                   <p className="text-xs text-pink-600 mt-1">昨日</p>
                 </div>
                 <div className="w-12 h-12 bg-pink-500 rounded-lg flex items-center justify-center">
                   <TrendingUp className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </div>
+
+            <div className="card bg-gradient-to-br from-orange-50 to-orange-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-orange-600 font-medium">坐席数量</p>
+                  <p className="text-3xl font-bold text-orange-900 mt-2">
+                    {yesterdayStats.activeSeats || 0}
+                  </p>
+                  <p className="text-xs text-orange-600 mt-1">有外呼数</p>
+                </div>
+                <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center">
+                  <Phone className="w-6 h-6 text-white" />
                 </div>
               </div>
             </div>
@@ -447,7 +586,8 @@ function CallStatistics() {
         <>
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-900">本月数据汇总</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+            {/* 第一行：外呼数量、接通数量、接通率、成功单 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* 1. 外呼数量 */}
             <div className="card bg-gradient-to-br from-blue-50 to-blue-100">
               <div className="flex items-center justify-between">
@@ -499,27 +639,56 @@ function CallStatistics() {
             {/* 4. 成功单 */}
             <div className="card bg-gradient-to-br from-purple-50 to-purple-100">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-purple-600 font-medium">成功单</p>
-                  <p className="text-3xl font-bold text-purple-900 mt-2">
-                    {formatNumber(statistics.totalSuccess)}
-                  </p>
-                  <p className="text-xs text-purple-600 mt-1">本月总计</p>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm text-purple-600 font-medium">成功单</p>
+                    {monthGradeStats && statistics.totalSuccess !== (monthGradeStats.grade_9 + monthGradeStats.grade_1) && (
+                      <span className="text-xs text-red-600 font-semibold flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        偏差
+                      </span>
+                    )}
+                  </div>
+                  {monthGradeStats ? (
+                    <div className="flex items-end gap-3">
+                      <div className="text-center">
+                        <p className="text-3xl font-bold text-purple-900">{formatNumber(monthGradeStats.grade_9)}</p>
+                        <p className="text-xs text-purple-600 mt-0.5">9元</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-3xl font-bold text-purple-900">{formatNumber(monthGradeStats.grade_1)}</p>
+                        <p className="text-xs text-purple-600 mt-0.5">1元</p>
+                      </div>
+                      <div className="text-center ml-auto">
+                        <p className="text-3xl font-bold text-purple-700">{formatNumber(statistics.totalSuccess)}</p>
+                        <p className="text-xs text-purple-600 mt-0.5">总计</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-3xl font-bold text-purple-900 mt-2">{formatNumber(statistics.totalSuccess)}</p>
+                      <p className="text-xs text-purple-600 mt-1">本月总计</p>
+                    </div>
+                  )}
                 </div>
-                <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center">
+                <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center ml-3">
                   <AlertCircle className="w-6 h-6 text-white" />
                 </div>
               </div>
             </div>
+          </div>
+
+            {/* 第二行：成功率、日均外呼、日均接通、日均成功单 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
             {/* 5. 成功率 */}
             <div className="card bg-gradient-to-br from-pink-50 to-pink-100">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-pink-600 font-medium">成功率</p>
-                  <p className="text-3xl font-bold text-pink-900 mt-2">
-                    {statistics.successRate}%
-                  </p>
+                  <div className="text-pink-900 mt-2">
+                    {renderSuccessRate(statistics.successRate)}
+                  </div>
                   <p className="text-xs text-pink-600 mt-1">本月平均</p>
                 </div>
                 <div className="w-12 h-12 bg-pink-500 rounded-lg flex items-center justify-center">
@@ -576,6 +745,32 @@ function CallStatistics() {
                 </div>
                 <div className="w-12 h-12 bg-amber-500 rounded-lg flex items-center justify-center">
                   <TrendingUp className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </div>
+
+            {/* 8. 日均成功单 */}
+            <div className="card bg-gradient-to-br from-emerald-50 to-emerald-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-emerald-600 font-medium">日均成功单</p>
+                  <p className="text-3xl font-bold text-emerald-900 mt-2">
+                    {(() => {
+                      // 只计算截止今天的工作日数量（外呼数>0 且 日期<=今天）
+                      const today = new Date()
+                      today.setHours(23, 59, 59, 999)
+                      const workingDays = statistics.dailyStats.filter(day => {
+                        const dayDate = new Date(day.date)
+                        return dayDate <= today && day.totalCalls > 0
+                      }).length
+                      const avgSuccess = workingDays > 0 ? Math.round(statistics.totalSuccess / workingDays) : 0
+                      return formatNumber(avgSuccess)
+                    })()}
+                  </p>
+                  <p className="text-xs text-emerald-600 mt-1">单/工作日</p>
+                </div>
+                <div className="w-12 h-12 bg-emerald-500 rounded-lg flex items-center justify-center">
+                  <AlertCircle className="w-6 h-6 text-white" />
                 </div>
               </div>
             </div>

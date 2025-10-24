@@ -1,6 +1,8 @@
 # 外呼坐席数据获取系统
 
 > **Call Center Organization** 的子系统 - 外呼数据采集与分析
+> 
+> **版本**: v2.0（前后端分离架构）
 
 ---
 
@@ -16,9 +18,25 @@
 
 ---
 
+## 🎯 架构升级（v2.0）
+
+**从 MVP 静态页面升级为前后端分离架构！**
+
+| 项目 | v1.0（MVP） | v2.0（当前） |
+|------|-----------|------------|
+| 架构 | 纯前端（静态页面） | 前后端分离 |
+| 后端 | ❌ 无 | ✅ Flask + SQLAlchemy |
+| 数据库 | ❌ localStorage | ✅ PostgreSQL / SQLite |
+| 认证 | 冠客 Token | JWT Token（组织统一） |
+| 数据存储 | 前端临时 | 数据库持久化 |
+
+**📖 迁移指南**：查看 [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md)
+
+---
+
 ## 📋 系统简介
 
-基于智能外呼机器人API的数据采集和分析平台 - 快速统计呼出数据
+基于智能外呼机器人API的数据采集和分析平台 - 前后端分离架构
 
 ## ✨ 功能特性
 
@@ -34,35 +52,173 @@
 - 💾 本地缓存Token
 - 🎨 现代化UI设计
 
-## 🚀 快速开始
+---
 
-### 1. 安装依赖
+## 🔧 MCP 支持
+
+本项目支持 **MCP（Model Context Protocol）**，可让 AI 助手访问在线文档（飞书、Google Sheets）。
+
+### 使用场景
+- 📊 **自动生成数据报表** - "生成本周的外呼数据报表，写入飞书文档"
+- 📈 **数据导出** - "把最近 7 天的数据导出到 Google Sheets"
+- 🔄 **数据同步** - "每天把新的外呼数据同步到团队共享表格"
+
+### 配置文档
+- 🚀 [MCP 快速开始](../call-center-docs/mcp-setup/在线文档MCP-快速开始.md)
+- 📖 [完整配置指引](../call-center-docs/mcp-setup/README-MCP配置完整指引.md)
+- 💡 [使用示例](../call-center-docs/mcp-setup/在线文档MCP使用示例.md)
+
+> 💡 **提示**：MCP 在 org workspace（`../call-center-org.code-workspace`）级别配置，配置一次即可在所有子项目中使用。
+
+---
+
+## 🚀 快速开始（v2.0 前后端分离）
+
+### 方式 1：完整开发环境（前后端都启动）
+
+#### 1. 启动后端
+
 ```bash
-npm install
+# 进入后端目录
+cd backend
+
+# 创建虚拟环境
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 配置环境变量（复制 .env.example 为 .env 并编辑）
+cp .env.example .env
+
+# 初始化数据库
+python scripts/init_db.py
+
+# 启动后端服务
+python run.py
 ```
 
-### 2. 启动开发服务器
+后端启动在 http://localhost:5001
+
+#### 2. 启动前端
+
 ```bash
+# 在项目根目录
+npm install
+
+# 创建环境变量文件（项目根目录）
+echo "VITE_BACKEND_URL=http://localhost:5001" > .env.development
+
+# 启动前端
+npm run dev
+```
+
+前端访问：http://localhost:3001
+
+#### 3. 测试
+
+打开浏览器控制台，应该能看到前端调用后端的 API 请求日志。
+
+**详细步骤**：查看 [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md)
+
+---
+
+### 方式 2：仅前端（使用旧的 MVP 模式）
+
+如果只想测试前端（不启动后端），仍然可以使用旧的直连模式：
+
+```bash
+npm install
 npm run dev
 ```
 
 访问: http://localhost:3001
 
-### 3. 构建生产版本
+**注意**：这种方式会直接调用冠客 API，需要在 `src/utils/apiConfig.js` 中配置用户名密码或密钥。
+
+---
+
+### 构建生产版本
+
 ```bash
+# 前端
 npm run build
+
+# 后端（无需构建，直接运行）
+cd backend
+python run.py
 ```
 
 ## ☁️ 部署
 
-### 方式1：GitHub 自动部署到腾讯云 CloudBase（推荐）
-详细步骤请查看：`CloudBase-GitHub自动部署配置指南.md`
+### 🐳 方式1：Docker 部署（推荐 ⭐）
 
-### 方式2：命令行直接部署到 CloudBase（兜底方案）
-详细步骤请查看：`CloudBase命令行部署.md`
+**适合场景**：快速部署、团队协作、容器化环境
 
-### 方式3：使用 CloudBase Framework
-详细步骤请查看：`CloudBase-Framework部署方案.md`
+#### 快速开始
+
+```bash
+# 一键部署（推荐）
+./快速部署Docker.sh
+
+# 或手动部署
+docker-compose up -d
+```
+
+#### 详细文档
+- 📖 [Docker 部署完整指南](./DOCKER_DEPLOYMENT.md) - **推荐阅读**
+- 🚀 支持 Docker Compose 一键部署
+- 🔄 支持生产环境配置
+- 📦 前后端完整容器化
+
+---
+
+### ⚡ 方式2：Zeabur 部署（国内推荐 ⭐⭐⭐）
+
+**适合场景**：中国大陆用户、快速上线、自动 CI/CD
+
+#### 优势
+- ✅ 国内访问快（有中国节点）
+- ✅ 自动 CI/CD（Git push 自动部署）
+- ✅ 简单易用（无需配置服务器）
+- ✅ 免费额度（小项目完全够用）
+
+#### 快速部署
+
+```bash
+# 使用脚本部署（推荐）
+./部署到Zeabur.sh
+
+# 或使用 Zeabur CLI
+npm install -g @zeabur/cli
+zeabur auth login
+zeabur deploy
+```
+
+#### 详细文档
+- 📖 [Zeabur 快速开始](./Zeabur快速开始.md)
+- 📖 [Zeabur CLI 使用指南](./Zeabur_CLI使用指南.md)
+- 📖 [Docker 部署指南](./DOCKER_DEPLOYMENT.md) - 包含完整 Zeabur 配置
+
+---
+
+### ☁️ 方式3：腾讯云 CloudBase
+
+详细步骤请查看：
+- `CloudBase-GitHub自动部署配置指南.md`
+- `CloudBase命令行部署.md`
+- `CloudBase-Framework部署方案.md`
+
+---
+
+### 📊 部署方式对比
+
+| 方式 | 适用场景 | 国内访问 | 难度 | 费用 |
+|------|---------|---------|------|------|
+| **Docker** | 本地开发、云服务器 | ⭐⭐⭐ | 中 | 自选 |
+| **Zeabur** | 快速上线、中国用户 | ⭐⭐⭐⭐⭐ | 低 | 免费额度 |
+| **CloudBase** | 腾讯云生态 | ⭐⭐⭐⭐ | 中 | 按量计费 |
 
 ## ⚙️ 使用说明
 

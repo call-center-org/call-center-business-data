@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # ===================================
+  # 后端服务 (Flask)
+  # ===================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: call-center-backend
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    environment:
+      - FLASK_ENV=production
+      - PORT=5001
+      - DATABASE_URL=${DATABASE_URL:-sqlite:////app/instance/business_data.db}
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-jwt-secret-key-change-in-production}
+      - GUANKE_USERNAME=${GUANKE_USERNAME}
+      - GUANKE_PASSWORD=${GUANKE_PASSWORD}
+    volumes:
+      # 持久化数据库
+      - backend-data:/app/instance
+    networks:
+      - call-center-network
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import requests; requests.get('http://localhost:5001/api/health')" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ===================================
+  # 前端服务 (Nginx)
+  # ===================================
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: call-center-frontend
+    restart: unless-stopped
+    ports:
+      - "3001:80"
+    environment:
+      - VITE_BACKEND_URL=http://localhost:5001
+    depends_on:
+      - backend
+    networks:
+      - call-center-network
+    healthcheck:
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/" ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+# ===================================
+# 网络配置
+# ===================================
+networks:
+  call-center-network:
+    driver: bridge
+
+# ===================================
+# 数据卷
+# ===================================
+volumes:
+  backend-data:
+    driver: local

@@ -1,0 +1,64 @@
+{
+  "name": "call-center-business-data",
+  "version": "2.0.0",
+  "services": [
+    {
+      "name": "frontend",
+      "type": "static",
+      "buildCommand": "npm install && npm run build",
+      "outputDirectory": "dist",
+      "port": 3001
+    },
+    {
+      "name": "backend",
+      "type": "python",
+      "rootDirectory": "backend",
+      "buildCommand": "pip install -r requirements.txt",
+      "startCommand": "python run.py",
+      "port": 5001,
+      "env": {
+        "FLASK_ENV": "production",
+        "PORT": "5001"
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "database",
+      "mount": "/app/backend/instance"
+    }
+  ]
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

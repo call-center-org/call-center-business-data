@@ -1,0 +1,50 @@
+# Flask 核心
+Flask==2.3.3
+Flask-CORS==4.0.0
+
+# 数据库
+Flask-SQLAlchemy==3.0.5
+Flask-Migrate==4.0.5
+psycopg2-binary==2.9.7
+
+# 认证
+PyJWT==2.8.0
+
+# HTTP 客户端
+requests==2.31.0
+
+# 工具
+python-dotenv==1.0.0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -114,6 +114,7 @@
 |------|------|------|
 | README | `README.md` | 系统概览、功能列表、部署 |
 | Organization README | `../ORGANIZATION_README.md` | 整体架构（在 workspace 根目录） |
+| **MCP 配置文档** | `../call-center-docs/mcp-setup/` | **在线文档 MCP 配置指南** |
 | Token 管理 | `src/utils/tokenManager.js` | Token 自动刷新逻辑 |
 | API 客户端 | `src/utils/apiClient.js` | 冠客 API 调用封装 |
 

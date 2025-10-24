@@ -13,13 +13,14 @@ export async function getDailyStatistics(date) {
     const requestBody = {
       start_time: date,
       end_time: date,
-      query_type: 1
+      query_type: 1  // 账号维度
     }
     
     const response = await apiClient.post(API_CONFIG.ENDPOINTS.getStatistics, requestBody)
     
     if (response.code === 200 && response.data) {
       const total = response.data.total || {}
+      const content = response.data.content || []
       
       const calloutNumber = total.callout_number || 0
       const calledNumber = total.called_number || 0
@@ -33,10 +34,20 @@ export async function getDailyStatistics(date) {
         ? ((successNumber / calledNumber) * 100).toFixed(2)
         : '0.00'
       
+      // 统计坐席数量：排除指定账号，且外呼数>0的账号
+      const excludedAccounts = ['淮安助理', '江苏职场', '总计', '平均']
+      const activeSeats = content.filter(account => {
+        const username = account.username || ''
+        const calloutNum = account.callout_number || 0
+        // 有外呼数 且 不在排除列表中
+        return calloutNum > 0 && !excludedAccounts.includes(username)
+      }).length
+      
       console.log(`✅ ${date} 统计:`, {
         calloutNumber,
         calledNumber,
         successNumber,
+        activeSeats,
         connectedRate: connectedRate + '%',
         successRate: successRate + '%'
       })
@@ -46,6 +57,7 @@ export async function getDailyStatistics(date) {
         calloutNumber,
         calledNumber,
         successNumber,
+        activeSeats,  // 坐席数量
         connectedRate,
         successRate
       }
@@ -199,6 +211,96 @@ export async function getMonthlyStatistics(month, onProgress = null) {
     return summary
   } catch (error) {
     console.error('获取外呼统计失败:', error)
+    throw error
+  }
+}
+
+/**
+ * 获取按意向度分类的统计数据
+ * @param {string} date - 日期，格式：YYYY-MM-DD
+ * @returns {Promise} 意向度统计数据
+ */
+export async function getGradeStatistics(date) {
+  try {
+    console.log(`📊 获取${date}的意向度统计数据...`)
+    
+    // 调用后端API
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001'
+    const response = await fetch(`${backendUrl}/api/stats/grade-stats?date=${date}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        // Token认证会由后端自动处理
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
+    const result = await response.json()
+    
+    if (result.success && result.data) {
+      console.log(`✅ ${date} 意向度统计:`, result.data)
+      return result.data
+    } else {
+      throw new Error(result.error || '获取意向度统计失败')
+    }
+  } catch (error) {
+    console.error(`❌ 获取${date}意向度统计失败:`, error)
+    throw error
+  }
+}
+
+/**
+ * 获取月度意向度统计数据（累计所有日期）
+ * @param {string} month - 月份，格式：YYYY-MM
+ * @returns {Promise} 月度意向度统计数据
+ */
+export async function getMonthlyGradeStatistics(month) {
+  try {
+    console.log(`📊 获取${month}月的意向度统计数据...`)
+    
+    // 解析月份，获取该月的所有日期
+    const [year, monthNum] = month.split('-').map(Number)
+    const startDate = new Date(year, monthNum - 1, 1)
+    const endDate = new Date(year, monthNum, 0)
+    
+    const formatDate = (date) => {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+    
+    let totalGrade9 = 0
+    let totalGrade1 = 0
+    let totalSuccess = 0
+    
+    // 获取每一天的意向度数据并累加
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const dateStr = formatDate(d)
+      
+      try {
+        const dayGradeStats = await getGradeStatistics(dateStr)
+        totalGrade9 += dayGradeStats.grade_9 || 0
+        totalGrade1 += dayGradeStats.grade_1 || 0
+        totalSuccess += dayGradeStats.total_success || 0
+      } catch (err) {
+        console.warn(`跳过 ${dateStr} 的意向度统计:`, err.message)
+      }
+    }
+    
+    console.log(`✅ ${month}月意向度统计:`, { totalGrade9, totalGrade1, totalSuccess })
+    
+    return {
+      month,
+      grade_9: totalGrade9,
+      grade_1: totalGrade1,
+      total_success: totalSuccess
+    }
+  } catch (error) {
+    console.error(`❌ 获取${month}月意向度统计失败:`, error)
     throw error
   }
 }
