@@ -10,6 +10,8 @@ app = create_app(config_name)
 
 # 确保数据库表存在（自动创建缺失的表）
 with app.app_context():
+    # 显式导入模型以确保表结构被注册
+    from app.models.stats_cache import TaskStatsCache, GradeStatsCache
     db.create_all()
     print("✅ 数据库表初始化完成")
 
