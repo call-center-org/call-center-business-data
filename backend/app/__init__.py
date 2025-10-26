@@ -33,7 +33,9 @@ def create_app(config_name='development'):
             "origins": [
                 "http://localhost:3001",
                 "http://127.0.0.1:3001",
-                "https://cloud1-6gt5ulxm10210d0f.ap-shanghai.app.tcloudbase.com"
+                "http://localhost:8080",
+                "https://cloud1-6gt5ulxm10210d0f.ap-shanghai.app.tcloudbase.com",
+                "https://call-center-business-data.zeabur.app"
             ],
             "allow_headers": ["Authorization", "Content-Type"],
             "methods": ["GET", "POST", "PUT", "DELETE"]
