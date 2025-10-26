@@ -227,9 +227,9 @@ export async function getGradeStatistics(date) {
     // 调用后端API，添加10秒超时
     const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001'
     
-    // 创建超时 Promise
+    // 创建超时 Promise（20秒，考虑生产环境网络延迟）
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('请求超时（10秒）')), 10000)
+      setTimeout(() => reject(new Error('请求超时（20秒）')), 20000)
     )
     
     // 创建 fetch Promise
