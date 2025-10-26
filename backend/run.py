@@ -8,6 +8,10 @@ from app import create_app
 config_name = os.getenv('FLASK_ENV', 'development')
 app = create_app(config_name)
 
+# 初始化统计数据定时同步调度器
+from app.tasks.stats_scheduler import init_stats_scheduler
+init_stats_scheduler(app)
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5001))
     app.run(

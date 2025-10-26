@@ -78,132 +78,203 @@ def get_trend():
 def get_grade_stats():
     """
     获取按意向度分类的统计数据（话单维度）
-
-    ⚠️ 经测试验证：任务维度统计接口无法提供意向度标签（9元、1元）的详细统计
-    - intention_number = called_number (接通数)
-    - intention_number2 = 0 (无数据)
-    必须使用话单接口逐条统计 grade 字段
-
+    
+    v2.0 双轨架构：
+    - 今日数据：实时计算（每10分钟后台更新缓存）
+    - 历史数据：从缓存读取（极快，<1秒）
+    
     查询参数：
         - date: 日期（YYYY-MM-DD）
     返回：
         - grade_9: 9元成功单数量
         - grade_1: 1元成功单数量
         - total_success: 总成功单数量
+        - from_cache: 是否来自缓存（true/false）
     """
     import time
+    from datetime import datetime
     from flask import current_app
+    from app.models.stats_cache import GradeStatsCache
+    from app.services.stats_sync_service import StatsSyncService
 
     start_time = time.time()
 
     try:
-        from app.services.guanke_api import GuankeAPI
-
         # 获取日期参数
-        date = request.args.get("date")
-        if not date:
+        date_str = request.args.get("date")
+        if not date_str:
             current_app.logger.error("❌ 缺少日期参数")
             return jsonify({"success": False, "error": "缺少日期参数"}), 400
 
-        current_app.logger.info(f"📊 开始获取 {date} 的意向度统计...")
+        # 解析日期
+        date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        today = datetime.now().date()
+        
+        current_app.logger.info(f"📊 获取 {date_str} 的意向度统计...")
 
-        # 初始化冠客API客户端
-        guanke = GuankeAPI()
-
-        # 获取该日期的话单明细
-        start_datetime = f"{date} 00:00:00"
-        end_datetime = f"{date} 23:59:59"
-
-        # 初始化计数器
-        grade_9_count = 0
-        grade_1_count = 0
-        total_success = 0
-        total_records = 0
-
-        # 分页获取话单
-        page = 1
-        page_size = 1000
-        max_pages = 200  # ⚠️ 增加到 200 页（20万条），确保数据完整性
-
-        current_app.logger.info(f"🔍 开始分页获取话单数据...")
-
-        while page <= max_pages:
-            page_start = time.time()
-
-            try:
-                result = guanke.get_call_records(
-                    start_datetime, end_datetime, page, page_size
-                )
-
-                page_elapsed = time.time() - page_start
-                current_app.logger.info(f"  第 {page} 页请求耗时: {page_elapsed:.2f}秒")
-
-                if result.get("code") != 200:
-                    error_msg = result.get("message", "未知错误")
-                    current_app.logger.warning(f"⚠️ API返回非200: {error_msg}")
-                    break
-
-                records = result.get("data", {}).get("data", [])
-                if not records:
-                    current_app.logger.info(f"✅ 第 {page} 页无数据，分页结束")
-                    break
-
-                total_records += len(records)
+        # 判断是今日还是历史数据
+        if date == today:
+            # 今日数据：先尝试从缓存读取，如果没有则实时计算
+            current_app.logger.info(f"  🔄 今日数据，尝试从缓存读取...")
+            cache = GradeStatsCache.query.filter_by(date=date).first()
+            
+            if cache:
+                elapsed = time.time() - start_time
                 current_app.logger.info(
-                    f"  第 {page} 页: 获取到 {len(records)} 条记录（累计: {total_records}）"
+                    f"  ✅ 从缓存读取成功！耗时: {elapsed:.2f}秒 | "
+                    f"9元单: {cache.grade_9} | 1元单: {cache.grade_1}"
                 )
-
-                # 统计意向度
-                for record in records:
-                    grade = record.get("grade", "")
-
-                    # 判断是否为成功单（根据意向度包含"9元"或"1元"）
-                    if "9元" in grade or (grade == "9"):
-                        grade_9_count += 1
-                        total_success += 1
-                    elif "1元" in grade or (grade == "1"):
-                        grade_1_count += 1
-                        total_success += 1
-
-                # 如果本页记录数 < page_size，说明已经是最后一页
-                if len(records) < page_size:
-                    current_app.logger.info(
-                        f"✅ 第 {page} 页记录数 < {page_size}，分页结束"
-                    )
-                    break
-
-                page += 1
-
-            except Exception as page_error:
-                current_app.logger.error(f"❌ 第 {page} 页获取失败: {str(page_error)}")
-                break
-
-        elapsed = time.time() - start_time
-        current_app.logger.info(
-            f"✅ 意向度统计完成！耗时: {elapsed:.2f}秒 | "
-            f"总记录: {total_records} | 9元单: {grade_9_count} | 1元单: {grade_1_count}"
-        )
-
-        return (
-            jsonify(
-                {
-                    "success": True,
-                    "data": {
-                        "date": date,
-                        "grade_9": grade_9_count,
-                        "grade_1": grade_1_count,
-                        "total_success": total_success,
-                        "total_records": total_records,
-                        "elapsed_time": round(elapsed, 2),
-                    },
-                }
-            ),
-            200,
-        )
+                return (
+                    jsonify(
+                        {
+                            "success": True,
+                            "data": {
+                                "date": date_str,
+                                "grade_9": cache.grade_9,
+                                "grade_1": cache.grade_1,
+                                "total_success": cache.total_success,
+                                "total_records": cache.total_records,
+                                "calculated_at": cache.calculated_at.strftime('%Y-%m-%d %H:%M:%S'),
+                                "from_cache": True,
+                                "elapsed_time": round(elapsed, 2),
+                            },
+                        }
+                    ),
+                    200,
+                )
+            else:
+                # 缓存不存在，触发同步
+                current_app.logger.info(f"  🔄 缓存不存在，触发实时同步...")
+                sync_service = StatsSyncService()
+                success = sync_service.sync_grade_stats(date, date, 'today')
+                
+                if success:
+                    cache = GradeStatsCache.query.filter_by(date=date).first()
+                    if cache:
+                        elapsed = time.time() - start_time
+                        return (
+                            jsonify(
+                                {
+                                    "success": True,
+                                    "data": {
+                                        "date": date_str,
+                                        "grade_9": cache.grade_9,
+                                        "grade_1": cache.grade_1,
+                                        "total_success": cache.total_success,
+                                        "total_records": cache.total_records,
+                                        "calculated_at": cache.calculated_at.strftime('%Y-%m-%d %H:%M:%S'),
+                                        "from_cache": False,
+                                        "elapsed_time": round(elapsed, 2),
+                                    },
+                                }
+                            ),
+                            200,
+                        )
+                
+                return jsonify({"success": False, "error": "同步失败"}), 500
+                
+        else:
+            # 历史数据：必须从缓存读取
+            current_app.logger.info(f"  📦 历史数据，从缓存读取...")
+            cache = GradeStatsCache.query.filter_by(date=date).first()
+            
+            if cache:
+                elapsed = time.time() - start_time
+                current_app.logger.info(
+                    f"  ✅ 从缓存读取成功！耗时: {elapsed:.2f}秒 | "
+                    f"9元单: {cache.grade_9} | 1元单: {cache.grade_1}"
+                )
+                return (
+                    jsonify(
+                        {
+                            "success": True,
+                            "data": {
+                                "date": date_str,
+                                "grade_9": cache.grade_9,
+                                "grade_1": cache.grade_1,
+                                "total_success": cache.total_success,
+                                "total_records": cache.total_records,
+                                "calculated_at": cache.calculated_at.strftime('%Y-%m-%d %H:%M:%S'),
+                                "from_cache": True,
+                                "elapsed_time": round(elapsed, 2),
+                            },
+                        }
+                    ),
+                    200,
+                )
+            else:
+                current_app.logger.warning(f"  ⚠️ 缓存不存在: {date_str}")
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "error": f"历史数据未同步，请等待后台同步完成（每天 01:05, 07:05, 10:05, 15:05, 21:05）"
+                        }
+                    ),
+                    404,
+                )
 
     except Exception as e:
         elapsed = time.time() - start_time
         current_app.logger.error(
             f"❌ 意向度统计失败: {str(e)} | 耗时: {elapsed:.2f}秒", exc_info=True
         )
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@bp.route("/grade-stats/refresh", methods=["POST"])
+# @require_auth  # 暂时禁用认证，方便开发测试
+def refresh_grade_stats():
+    """
+    手动刷新意向度统计缓存
+    
+    请求体：
+        - date: 日期（YYYY-MM-DD）
+    返回：
+        - success: 是否成功
+        - message: 结果消息
+    """
+    from datetime import datetime
+    from flask import current_app
+    from app.services.stats_sync_service import StatsSyncService
+
+    try:
+        data = request.get_json() or {}
+        date_str = data.get("date")
+        
+        if not date_str:
+            return jsonify({"success": False, "error": "缺少日期参数"}), 400
+
+        # 解析日期
+        date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        
+        current_app.logger.info(f"🔄 手动刷新 {date_str} 的意向度统计...")
+
+        # 触发同步
+        sync_service = StatsSyncService()
+        success = sync_service.sync_grade_stats(date, date, 'manual')
+        
+        if success:
+            return (
+                jsonify(
+                    {
+                        "success": True,
+                        "message": f"{date_str} 的意向度统计已刷新"
+                    }
+                ),
+                200,
+            )
+        else:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "刷新失败，请查看日志"
+                    }
+                ),
+                500,
+            )
+
+    except Exception as e:
+        current_app.logger.error(f"❌ 手动刷新失败: {str(e)}", exc_info=True)
         return jsonify({"success": False, "error": str(e)}), 500

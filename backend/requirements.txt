@@ -16,6 +16,9 @@ requests==2.31.0
 # 工具
 python-dotenv==1.0.0
 
+# 定时任务
+APScheduler==3.11.0
+
 
 
 
