@@ -224,15 +224,25 @@ export async function getGradeStatistics(date) {
   try {
     console.log(`📊 获取${date}的意向度统计数据...`)
     
-    // 调用后端API
+    // 调用后端API，添加10秒超时
     const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001'
-    const response = await fetch(`${backendUrl}/api/stats/grade-stats?date=${date}`, {
+    
+    // 创建超时 Promise
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('请求超时（10秒）')), 10000)
+    )
+    
+    // 创建 fetch Promise
+    const fetchPromise = fetch(`${backendUrl}/api/stats/grade-stats?date=${date}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         // Token认证会由后端自动处理
       }
     })
+    
+    // 使用 Promise.race 实现超时
+    const response = await Promise.race([fetchPromise, timeoutPromise])
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)

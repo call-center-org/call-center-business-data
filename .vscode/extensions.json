@@ -1,0 +1,23 @@
+{
+  "recommendations": [
+    "figma.figma-vscode-extension",
+    "Tencent.cloudbase-toolkit",
+    "kisstkondoros.vscode-gutter-preview",
+    "Gruntfuggly.todo-tree",
+    "alefragnani.project-manager",
+    "yzhang.markdown-all-in-one",
+    "hediet.vscode-drawio",
+    "ms-vscode.live-server",
+    "cweijan.vscode-database-client2",
+    "rangav.vscode-thunder-client",
+    "mhutchie.git-graph",
+    "eamodio.gitlens",
+    "phplasma.csv-to-table",
+    "PKief.material-icon-theme",
+    "johnpapa.vscode-peacock",
+    "WakaTime.vscode-wakatime"
+  ]
+}
+
+
+
