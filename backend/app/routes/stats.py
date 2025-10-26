@@ -77,7 +77,13 @@ def get_trend():
 # @require_auth  # 暂时禁用认证，方便开发测试
 def get_grade_stats():
     """
-    获取按意向度分类的统计数据
+    获取按意向度分类的统计数据（话单维度）
+
+    ⚠️ 经测试验证：任务维度统计接口无法提供意向度标签（9元、1元）的详细统计
+    - intention_number = called_number (接通数)
+    - intention_number2 = 0 (无数据)
+    必须使用话单接口逐条统计 grade 字段
+
     查询参数：
         - date: 日期（YYYY-MM-DD）
     返回：
@@ -114,10 +120,10 @@ def get_grade_stats():
         total_success = 0
         total_records = 0
 
-        # 分页获取所有话单
+        # 分页获取话单
         page = 1
         page_size = 1000
-        max_pages = 100  # 防止无限循环，最多获取100页（10万条记录）
+        max_pages = 200  # ⚠️ 增加到 200 页（20万条），确保数据完整性
 
         current_app.logger.info(f"🔍 开始分页获取话单数据...")
 
@@ -159,7 +165,7 @@ def get_grade_stats():
                         grade_1_count += 1
                         total_success += 1
 
-                # 检查是否还有下一页
+                # 如果本页记录数 < page_size，说明已经是最后一页
                 if len(records) < page_size:
                     current_app.logger.info(
                         f"✅ 第 {page} 页记录数 < {page_size}，分页结束"
@@ -170,7 +176,6 @@ def get_grade_stats():
 
             except Exception as page_error:
                 current_app.logger.error(f"❌ 第 {page} 页获取失败: {str(page_error)}")
-                # 继续处理已获取的数据，不中断
                 break
 
         elapsed = time.time() - start_time
