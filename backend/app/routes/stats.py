@@ -85,13 +85,21 @@ def get_grade_stats():
         - grade_1: 1元成功单数量
         - total_success: 总成功单数量
     """
+    import time
+    from flask import current_app
+
+    start_time = time.time()
+
     try:
         from app.services.guanke_api import GuankeAPI
 
         # 获取日期参数
         date = request.args.get("date")
         if not date:
+            current_app.logger.error("❌ 缺少日期参数")
             return jsonify({"success": False, "error": "缺少日期参数"}), 400
+
+        current_app.logger.info(f"📊 开始获取 {date} 的意向度统计...")
 
         # 初始化冠客API客户端
         guanke = GuankeAPI()
@@ -104,40 +112,72 @@ def get_grade_stats():
         grade_9_count = 0
         grade_1_count = 0
         total_success = 0
+        total_records = 0
 
         # 分页获取所有话单
         page = 1
         page_size = 1000
+        max_pages = 100  # 防止无限循环，最多获取100页（10万条记录）
 
-        while True:
-            result = guanke.get_call_records(
-                start_datetime, end_datetime, page, page_size
-            )
+        current_app.logger.info(f"🔍 开始分页获取话单数据...")
 
-            if result.get("code") != 200:
+        while page <= max_pages:
+            page_start = time.time()
+
+            try:
+                result = guanke.get_call_records(
+                    start_datetime, end_datetime, page, page_size
+                )
+
+                page_elapsed = time.time() - page_start
+                current_app.logger.info(f"  第 {page} 页请求耗时: {page_elapsed:.2f}秒")
+
+                if result.get("code") != 200:
+                    error_msg = result.get("message", "未知错误")
+                    current_app.logger.warning(f"⚠️ API返回非200: {error_msg}")
+                    break
+
+                records = result.get("data", {}).get("data", [])
+                if not records:
+                    current_app.logger.info(f"✅ 第 {page} 页无数据，分页结束")
+                    break
+
+                total_records += len(records)
+                current_app.logger.info(
+                    f"  第 {page} 页: 获取到 {len(records)} 条记录（累计: {total_records}）"
+                )
+
+                # 统计意向度
+                for record in records:
+                    grade = record.get("grade", "")
+
+                    # 判断是否为成功单（根据意向度包含"9元"或"1元"）
+                    if "9元" in grade or (grade == "9"):
+                        grade_9_count += 1
+                        total_success += 1
+                    elif "1元" in grade or (grade == "1"):
+                        grade_1_count += 1
+                        total_success += 1
+
+                # 检查是否还有下一页
+                if len(records) < page_size:
+                    current_app.logger.info(
+                        f"✅ 第 {page} 页记录数 < {page_size}，分页结束"
+                    )
+                    break
+
+                page += 1
+
+            except Exception as page_error:
+                current_app.logger.error(f"❌ 第 {page} 页获取失败: {str(page_error)}")
+                # 继续处理已获取的数据，不中断
                 break
 
-            records = result.get("data", {}).get("data", [])
-            if not records:
-                break
-
-            # 统计意向度
-            for record in records:
-                grade = record.get("grade", "")
-
-                # 判断是否为成功单（根据意向度包含"9元"或"1元"）
-                if "9元" in grade or "9" in grade:
-                    grade_9_count += 1
-                    total_success += 1
-                elif "1元" in grade or grade == "1":
-                    grade_1_count += 1
-                    total_success += 1
-
-            # 检查是否还有下一页
-            if len(records) < page_size:
-                break
-
-            page += 1
+        elapsed = time.time() - start_time
+        current_app.logger.info(
+            f"✅ 意向度统计完成！耗时: {elapsed:.2f}秒 | "
+            f"总记录: {total_records} | 9元单: {grade_9_count} | 1元单: {grade_1_count}"
+        )
 
         return (
             jsonify(
@@ -148,6 +188,8 @@ def get_grade_stats():
                         "grade_9": grade_9_count,
                         "grade_1": grade_1_count,
                         "total_success": total_success,
+                        "total_records": total_records,
+                        "elapsed_time": round(elapsed, 2),
                     },
                 }
             ),
@@ -155,4 +197,8 @@ def get_grade_stats():
         )
 
     except Exception as e:
+        elapsed = time.time() - start_time
+        current_app.logger.error(
+            f"❌ 意向度统计失败: {str(e)} | 耗时: {elapsed:.2f}秒", exc_info=True
+        )
         return jsonify({"success": False, "error": str(e)}), 500

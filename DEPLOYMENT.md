@@ -20,11 +20,16 @@
 
 ---
 
-## 🚀 Zeabur 部署（推荐）
+## 🚀 Zeabur 部署（推荐）✅ 已部署
+
+**生产环境**：
+- 前端: https://call-center-business-data.zeabur.app
+- 后端: https://call-center-business-api.zeabur.app
+- 部署方式: Docker + 自动 CI/CD
 
 Zeabur 是一个现代化的云部署平台，支持自动构建和部署。
 
-### 方式 1：通过 GitHub 自动部署（推荐）
+### 方式 1：通过 GitHub 自动部署（推荐）✅ 已配置
 
 #### 1.1 准备工作
 
@@ -39,48 +44,63 @@ Zeabur 是一个现代化的云部署平台，支持自动构建和部署。
 3. 选择 `call-center-business-data` 仓库
 4. Zeabur 会自动检测到前后端服务
 
-#### 1.3 配置后端服务
+#### 1.3 配置后端服务 ✅ 已配置
 
 在后端服务的环境变量中添加：
 
 ```env
 # Flask 配置
 FLASK_ENV=production
-PORT=5001
+PORT=8080
 
-# 密钥（生产环境必须修改）
-SECRET_KEY=<生成强密钥>
-JWT_SECRET_KEY=call-center-secret-key-2024-change-in-production
+# 密钥（已配置）
+SECRET_KEY=aaac407c031fb2de0f23eb939d3824af868156eb8571d10d66d16cc2be53317e
+JWT_SECRET_KEY=f217e2f5b0a5cd52c66d6ba6c4d5d67ec50d390c0889c2204ce549cf0e29534e
 
-# 数据库（Zeabur PostgreSQL）
-DATABASE_URL=<自动注入或手动配置>
+# 数据库（使用 SQLite）
+DATABASE_URL=sqlite:////app/instance/business_data.db
 
-# 冠客 API
-GUANKE_BASE_URL=https://open-api.gooki.com
-GUANKE_API_SECRET=<你的冠客密钥>
+# 冠客 API（已配置）
+GUANKE_USERNAME=<已配置>
+GUANKE_PASSWORD=<已配置>
 ```
 
-#### 1.4 配置前端服务
+**注意**: 生产环境已使用 SQLite，未来可迁移到 PostgreSQL 以提升性能。
+
+#### 1.4 配置前端服务 ✅ 已配置
 
 在前端服务的环境变量中添加：
 
 ```env
-VITE_BACKEND_URL=<后端服务的URL>
+VITE_BACKEND_URL=https://call-center-business-api.zeabur.app
 ```
 
-例如：`https://backend-xxx.zeabur.app`
+前端使用 **Docker 部署**，配置文件：
+- `Dockerfile`: 多阶段构建（Node.js + Nginx）
+- `nginx.conf`: Nginx 配置（端口 8080）
+- 构建方式: `npm run build` → Nginx 静态服务
 
-#### 1.5 添加 PostgreSQL 数据库
+#### 1.5 数据库配置 ✅
 
+**当前使用**: SQLite（后端内置）
+- 路径: `/app/instance/business_data.db`
+- 优点: 无需额外配置，开箱即用
+- 缺点: 性能受限，不适合高并发
+
+**未来迁移**: PostgreSQL（可选）
 1. 在项目中点击 "Add Service"
 2. 选择 "PostgreSQL"
 3. Zeabur 会自动创建数据库并注入 `DATABASE_URL`
 
-#### 1.6 部署
+#### 1.6 部署流程 ✅ 已完成
 
-1. 保存配置后，Zeabur 会自动构建和部署
-2. 等待构建完成（约 2-5 分钟）
-3. 访问前端 URL 测试
+1. **代码推送**: `git push origin main`
+2. **自动触发**: Zeabur 检测到代码变更
+3. **自动构建**: 
+   - 前端: Docker 构建（~3-5 分钟）
+   - 后端: Flask 构建（~1-2 分钟）
+4. **自动部署**: 构建完成后自动更新服务
+5. **验证**: 访问前端 URL 测试功能
 
 ### 方式 2：通过 Zeabur CLI 部署
 
@@ -105,11 +125,16 @@ zeabur deploy
 
 ---
 
-## 🐳 Docker 部署
+## 🐳 Docker 部署 ✅ 已配置
 
-### 前端 Dockerfile
+**当前配置**：
+- 前端 Dockerfile: 多阶段构建 + Nginx
+- 端口: 8080（Zeabur 要求）
+- 生产环境: 已部署到 Zeabur
 
-在项目根目录创建 `Dockerfile.frontend`：
+### 前端 Dockerfile ✅
+
+项目根目录的 `Dockerfile`：
 
 ```dockerfile
 FROM node:18-alpine AS build
@@ -132,9 +157,9 @@ EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
 ```
 
-### 后端 Dockerfile
+### 后端 Dockerfile ✅
 
-在 `backend/` 目录创建 `Dockerfile`：
+`backend/Dockerfile`（如果存在）：
 
 ```dockerfile
 FROM python:3.11-slim
@@ -229,31 +254,38 @@ CloudBase 也支持 Python 云函数，但推荐使用 Zeabur 部署后端。
 
 ## 🔧 生产环境配置检查清单
 
-### 后端
+### 后端 ✅ 已完成
 
-- [ ] 修改 `SECRET_KEY` 为强密钥
-- [ ] 修改 `JWT_SECRET_KEY`（与组织统一）
-- [ ] 配置 PostgreSQL 数据库 URL
-- [ ] 配置冠客 API 密钥
-- [ ] 启用 HTTPS
-- [ ] 配置 CORS 允许的域名
-- [ ] 关闭 DEBUG 模式
-- [ ] 配置日志记录
+- [x] 修改 `SECRET_KEY` 为强密钥
+- [x] 修改 `JWT_SECRET_KEY`
+- [x] 配置数据库（SQLite）
+- [x] 配置冠客 API 凭证
+- [x] 启用 HTTPS（Zeabur 自动）
+- [x] 配置 CORS 允许的域名
+- [x] 关闭 DEBUG 模式（FLASK_ENV=production）
+- [ ] 优化日志记录（待完善）
 
-### 前端
+### 前端 ✅ 已完成
 
-- [ ] 配置后端 API 地址（`VITE_BACKEND_URL`）
-- [ ] 构建生产版本（`npm run build`）
-- [ ] 配置域名和 HTTPS
-- [ ] 启用 Gzip 压缩
-- [ ] 配置 CDN（可选）
+- [x] 配置后端 API 地址
+- [x] Docker 构建配置
+- [x] 配置域名和 HTTPS（Zeabur 自动）
+- [x] Nginx Gzip 压缩
+- [ ] 配置 CDN（可选，未来优化）
 
-### 数据库
+### 数据库 ✅ 基本完成
 
-- [ ] 执行数据库迁移
-- [ ] 创建必要的索引
-- [ ] 配置自动备份
-- [ ] 设置连接池参数
+- [x] 数据库初始化
+- [x] 创建必要的索引
+- [ ] 配置自动备份（SQLite 文件备份）
+- [ ] 迁移到 PostgreSQL（未来优化）
+
+### 已知待优化项
+
+- [ ] 意向度统计 API 性能问题 🔴
+- [ ] 添加 Redis 缓存
+- [ ] 后端日志管理
+- [ ] 数据库迁移到 PostgreSQL
 
 ---
 
@@ -394,8 +426,36 @@ jobs:
 
 ---
 
-**最后更新**: 2025-10-19  
-**版本**: v2.0
+## 🎯 当前部署状态（2025-10-26）
+
+### ✅ 已部署服务
+
+| 服务 | URL | 状态 | 说明 |
+|------|-----|------|------|
+| 前端 | https://call-center-business-data.zeabur.app | ✅ 运行中 | Docker + Nginx |
+| 后端 | https://call-center-business-api.zeabur.app | ✅ 运行中 | Flask + SQLite |
+
+### 📊 核心功能状态
+
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| Token 认证 | ✅ 正常 | JWT 认证 |
+| 当日/昨日/本月统计 | ✅ 正常 | 基础统计功能 |
+| 坐席数量统计 | ✅ 正常 | 自动过滤非坐席 |
+| 每日明细表格 | ✅ 正常 | 分页显示 |
+| 意向度统计 | ⚠️ 有性能问题 | 临时解决方案已上线 |
+
+### 🔧 待优化项
+
+1. **优先级高** 🔴: 修复意向度统计 API 性能问题
+2. **优先级中** 🟡: 添加 Redis 缓存
+3. **优先级低** 🟢: 迁移到 PostgreSQL
+
+---
+
+**最后更新**: 2025-10-26  
+**版本**: v2.1  
+**部署状态**: ✅ 生产运行中
 
 
 

@@ -218,6 +218,7 @@ is_success = (
 | POST | `/api/calls/sync` | ✅ | 同步数据 |
 | GET | `/api/stats/overview` | ✅ | 统计概览 |
 | GET | `/api/stats/trend` | ✅ | 趋势数据 |
+| GET | `/api/stats/grade-stats` | ⚠️ | 意向度统计（有性能问题） |
 
 ### 统一响应格式
 
@@ -305,12 +306,14 @@ VITE_BACKEND_URL=http://localhost:5001
 数据库: SQLite (本地文件)
 ```
 
-### 生产环境（Zeabur）
+### 生产环境（Zeabur）✅ 已部署
 
 ```
-前端: https://frontend-xxx.zeabur.app
-后端: https://backend-xxx.zeabur.app
-数据库: PostgreSQL (Zeabur 托管)
+前端: https://call-center-business-data.zeabur.app
+后端: https://call-center-business-api.zeabur.app
+数据库: SQLite（后端内置）
+部署方式: Docker + Nginx (前端), Flask (后端)
+自动部署: GitHub → Zeabur 自动 CI/CD
 ```
 
 ---
@@ -361,27 +364,54 @@ src/
 
 ## 🔮 未来规划
 
-### Phase 1（已完成）
+### Phase 1（已完成 ✅）
 - ✅ 后端基础架构
 - ✅ JWT 认证
 - ✅ 数据库设计
 - ✅ 核心 API
 
-### Phase 2（待开发）
-- [ ] 前端完全迁移到新 API
-- [ ] 定时任务（自动同步）
-- [ ] 更多统计维度（坐席、任务）
+### Phase 2（已完成 ✅）
+- ✅ 前端迁移到新 API（基础功能）
+- ✅ Docker 部署配置
+- ✅ Zeabur 生产环境部署
+- ✅ 坐席统计（自动过滤非坐席）
+- ✅ 意向度统计（9元单/1元单）
 
-### Phase 3（未来）
-- [ ] Redis 缓存
-- [ ] 实时数据推送
-- [ ] 数据导出功能
-- [ ] 高级数据分析
+### Phase 3（进行中 🔄）
+- [ ] 修复意向度统计性能问题 🔴 优先
+- [ ] 添加缓存机制（Redis）
+- [ ] 定时任务（自动同步）
+- [ ] 更多统计维度（任务维度）
+
+### Phase 4（未来）
+- [ ] 实时数据推送（WebSocket）
+- [ ] 数据导出功能（Excel/CSV）
+- [ ] 高级数据分析和报表
+- [ ] 数据可视化图表
 
 ---
 
-**文档版本**: v2.0  
-**最后更新**: 2025-10-19
+## ⚠️ 已知问题
+
+### 意向度统计 API 性能问题
+
+**问题**: `/api/stats/grade-stats` 接口在有数据的日期会返回 500 错误或超时
+
+**临时解决方案**: 
+- 前端添加 10 秒超时处理
+- 失败时不影响主功能显示
+
+**待修复**: 
+- 添加调试日志定位问题
+- 实现缓存机制
+- 优化数据处理逻辑
+
+**相关代码**: `backend/app/routes/stats.py` (第 76-159 行)
+
+---
+
+**文档版本**: v2.1  
+**最后更新**: 2025-10-26
 
 
 
