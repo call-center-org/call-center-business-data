@@ -2,11 +2,16 @@
 外呼数据系统后端启动文件
 """
 import os
-from app import create_app
+from app import create_app, db
 
 # 获取环境变量，默认开发环境
 config_name = os.getenv('FLASK_ENV', 'development')
 app = create_app(config_name)
+
+# 确保数据库表存在（自动创建缺失的表）
+with app.app_context():
+    db.create_all()
+    print("✅ 数据库表初始化完成")
 
 # 初始化统计数据定时同步调度器
 from app.tasks.stats_scheduler import init_stats_scheduler
